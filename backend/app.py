@@ -1,5 +1,5 @@
 """
-FastAPI backend for bankruptcy risk calculation.
+FastAPI backend for household financial simulation.
 """
 
 from fastapi import FastAPI, HTTPException
@@ -10,7 +10,7 @@ from risk_engine import RiskEngine
 from config import MODEL_PARAMS, DEFAULT_N_SIMULATIONS
 from mangum import Mangum
 
-app = FastAPI(title="Bankruptcy Risk API")
+app = FastAPI(title="Household Financial Simulation API")
 
 # Enable CORS so React can call this API
 app.add_middleware(
@@ -63,12 +63,16 @@ class Statistics(BaseModel):
     terminalStats: TerminalStats
     negativeTerminalPct: float
     everNegativePct: float
+    creditExhaustionPct: float
     medianMinBalance: float
     meanMinBalance: float
+    medianInterestPaid: float
+    meanInterestPaid: float
     medianMonthsToNegative: Optional[float]
 
 class RiskMetrics(BaseModel):
     probabilityPositiveByMonth: List[float]
+    probabilityAboveCreditByMonth: List[float]
     emergencyFundMonths: float
     monthlyNetIncome: float
 
@@ -79,6 +83,8 @@ class Metadata(BaseModel):
     initialFund: float
     monthlyExpenses: float
     initialIncome: float
+    availableCredit: float
+    interestRate: float
 
 # Main response schema
 class RiskResponse(BaseModel):
@@ -90,7 +96,7 @@ class RiskResponse(BaseModel):
     metadata: Metadata
 
 @app.post("/api/calculate", response_model=RiskResponse)
-def calculate_bankruptcy_risk(request: RiskRequest):
+def simulate_financial_outcomes(request: RiskRequest):
     """
     Calculate financial outcomes using Monte Carlo simulation.
     Returns comprehensive simulation data including trajectories, statistics, and risk metrics.
@@ -100,12 +106,12 @@ def calculate_bankruptcy_risk(request: RiskRequest):
         engine = RiskEngine()
         
         # Run the simulation
-        results = engine.calculate_bankruptcy_risk(
+        results = engine.simulate_financial_outcomes(
             initial_fund=request.currentSavings,
             initial_income=request.monthlyIncome,
             monthly_expenses=request.monthlyExpenses,
             available_credit=request.availableCredit,
-            interest_rate=request.interestRate,
+            interest_rate=request.interestRate / 100,  # Convert percentage to decimal
             n_months=request.timeHorizon,
             n_simulations=DEFAULT_N_SIMULATIONS,
             params=MODEL_PARAMS,
@@ -121,8 +127,11 @@ def calculate_bankruptcy_risk(request: RiskRequest):
             terminalStats=terminal_stats,
             negativeTerminalPct=results['statistics']['negativeTerminalPct'],
             everNegativePct=results['statistics']['everNegativePct'],
+            creditExhaustionPct=results['statistics']['creditExhaustionPct'],  # NEW
             medianMinBalance=results['statistics']['medianMinBalance'],
             meanMinBalance=results['statistics']['meanMinBalance'],
+            medianInterestPaid=results['statistics']['medianInterestPaid'],  # NEW
+            meanInterestPaid=results['statistics']['meanInterestPaid'],  # NEW
             medianMonthsToNegative=results['statistics']['medianMonthsToNegative']
         )
         
@@ -135,7 +144,7 @@ def calculate_bankruptcy_risk(request: RiskRequest):
             aggregateStats=aggregate_stats,
             statistics=statistics,
             riskMetrics=risk_metrics,
-            metadata=metadata,
+            metadata=metadata
         )
         
     except Exception as e:
@@ -143,6 +152,10 @@ def calculate_bankruptcy_risk(request: RiskRequest):
             status_code=500,
             detail=f"Simulation failed: {str(e)}"
         )
+
+@app.get("/")
+def root():
+    return {"message": "Financial Simulation API", "endpoints": ["/api/calculate", "/health", "/docs"]}
 
 @app.get("/health")
 def health_check():

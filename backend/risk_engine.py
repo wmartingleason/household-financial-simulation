@@ -1,5 +1,5 @@
 """
-Risk engine for evaluating household bankruptcy risk via Monte Carlo simulation.
+Risk engine for evaluating household debt risk via Monte Carlo simulation.
 """
 
 import numpy as np
@@ -8,10 +8,7 @@ from typing import Dict, Optional
 
 class RiskEngine:
     """
-    Evaluates bankruptcy risk using Monte Carlo simulation of income trajectories.
-
-    Calculates the probability of going into debt given household parameters and
-    a stochastic income model.
+    Evaluates household financial risk using Monte Carlo simulation of income trajectories.
     """
 
     @staticmethod
@@ -71,7 +68,7 @@ class RiskEngine:
 
         return income
 
-    def calculate_bankruptcy_risk(
+    def simulate_financial_outcomes(
         self,
         initial_fund: float,
         monthly_expenses: float,
@@ -85,14 +82,14 @@ class RiskEngine:
         n_sample_paths: int = 100
     ) -> Dict:
         """
-        Calculate financial outcomes using Monte Carlo simulation.
+        Simulate financial outcomes using Monte Carlo simulation with debt modeling.
         
         Args:
             initial_fund: Starting savings amount
             monthly_expenses: Fixed monthly spending
             initial_income: Starting monthly income
-            available_credit: Credit limit (currently unused)
-            interest_rate: Interest rate on debt (currently unused)
+            available_credit: Maximum debt before credit exhaustion
+            interest_rate: Annual interest rate on debt (as decimal, e.g., 0.18 for 18%)
             n_months: Simulation duration in months
             n_simulations: Number of Monte Carlo trials
             params: Income model parameters (see simulate_trajectory for details)
@@ -100,17 +97,20 @@ class RiskEngine:
             n_sample_paths: Number of full paths to return for visualization (default 100)
             
         Returns:
-            Dictionary with simulation results
+            Dictionary with comprehensive simulation results
         """
         if seed is not None:
             np.random.seed(seed)
         
         # Storage for all simulations
-        all_paths = np.zeros((n_simulations, n_months + 1))  # +1 for initial state
+        all_paths = np.zeros((n_simulations, n_months + 1))
+        credit_exhaustion_tracker = np.zeros((n_simulations, n_months + 1), dtype=bool)  # Track exhaustion at each month
         terminal_values = []
         min_balances = []
         ever_negative = []
-        months_to_negative = []  # For those who go negative
+        months_to_negative = []
+        credit_exhausted = []
+        total_interest_paid_list = []
         
         # Sample indices for paths to return in full
         sample_indices = np.random.choice(n_simulations, min(n_sample_paths, n_simulations), replace=False)
@@ -122,37 +122,55 @@ class RiskEngine:
                 initial_income, n_months, params, seed=i if seed else None
             )
             
-            # Simulate savings evolution (NO early termination)
+            # Simulate savings evolution
             balance = initial_fund
             monthly_balances = [balance]
             went_negative = False
             first_negative_month = None
+            exhausted_credit = False
+            total_interest = 0.0
+            
+            # Track credit exhaustion at month 0
+            credit_exhaustion_tracker[i, 0] = False
             
             for month_idx, month_income in enumerate(income_trajectory):
                 monthly_savings = month_income - monthly_expenses
                 balance += monthly_savings
+                
+                # Apply interest if in debt
+                if balance < 0:
+                    monthly_interest = balance * (interest_rate / 12)
+                    balance += monthly_interest
+                    total_interest += abs(monthly_interest)
+                    
+                    # Track first time going negative
+                    if not went_negative:
+                        went_negative = True
+                        first_negative_month = month_idx + 1
+                    
+                    # Check for credit exhaustion
+                    if balance < -available_credit:
+                        exhausted_credit = True
+                
                 monthly_balances.append(balance)
-
-                # Track first time going negative
-                if balance < 0 and not went_negative:
-                    went_negative = True
-                    first_negative_month = month_idx + 1
+                
+                # Track if credit has been exhausted by this point
+                credit_exhaustion_tracker[i, month_idx + 1] = exhausted_credit
             
             # Store results
             all_paths[i] = monthly_balances
             terminal_values.append(balance)
             min_balances.append(min(monthly_balances))
             ever_negative.append(went_negative)
+            credit_exhausted.append(exhausted_credit)
+            total_interest_paid_list.append(total_interest)
+            
             if went_negative:
                 months_to_negative.append(first_negative_month)
             
             # Save full path if in sample
             if i in sample_indices:
                 sample_paths.append(monthly_balances)
-
-            # Debt accrues interest
-            if balance < 0:
-                balance *= 1 + (interest_rate) / 12
         
         # Calculate aggregate statistics across all simulations at each time point
         percentiles = [5, 10, 25, 50, 75, 90, 95]
@@ -175,16 +193,20 @@ class RiskEngine:
         for p in percentiles:
             terminal_stats[f'p{p}'] = float(np.percentile(terminal_array, p))
         
-        # Calculate derived statistics
+        # Calculate core statistics
         negative_terminal_count = sum(1 for v in terminal_values if v < 0)
         ever_negative_count = sum(ever_negative)
+        credit_exhausted_count = sum(credit_exhausted)
         
         statistics = {
             'terminalStats': terminal_stats,
             'negativeTerminalPct': (negative_terminal_count / n_simulations) * 100,
             'everNegativePct': (ever_negative_count / n_simulations) * 100,
+            'creditExhaustionPct': (credit_exhausted_count / n_simulations) * 100,
             'medianMinBalance': float(np.median(min_balances)),
             'meanMinBalance': float(np.mean(min_balances)),
+            'medianInterestPaid': float(np.median(total_interest_paid_list)),
+            'meanInterestPaid': float(np.mean(total_interest_paid_list)),
         }
         
         # Add median months to negative (only for those who went negative)
@@ -193,15 +215,23 @@ class RiskEngine:
         else:
             statistics['medianMonthsToNegative'] = None
         
-        # Calculate survival curve (probability of remaining positive at each month)
+        # Calculate survival curves
         probability_positive_by_month = []
+        probability_above_credit_by_month = []
+        
         for month in range(n_months + 1):
+            # Probability of remaining positive at each month
             positive_count = sum(1 for path in all_paths if path[month] >= 0)
             probability_positive_by_month.append((positive_count / n_simulations) * 100)
+            
+            # Probability of never exhausting credit up to each month
+            not_exhausted_count = sum(1 for sim in range(n_simulations) if not credit_exhaustion_tracker[sim, month])
+            probability_above_credit_by_month.append((not_exhausted_count / n_simulations) * 100)
         
         # Risk metrics
         risk_metrics = {
             'probabilityPositiveByMonth': probability_positive_by_month,
+            'probabilityAboveCreditByMonth': probability_above_credit_by_month,
             'emergencyFundMonths': initial_fund / monthly_expenses if monthly_expenses > 0 else float('inf'),
             'monthlyNetIncome': initial_income - monthly_expenses
         }
@@ -218,6 +248,8 @@ class RiskEngine:
                 'nSamplePaths': len(sample_paths),
                 'initialFund': initial_fund,
                 'monthlyExpenses': monthly_expenses,
-                'initialIncome': initial_income
+                'initialIncome': initial_income,
+                'availableCredit': available_credit,
+                'interestRate': interest_rate
             }
         }

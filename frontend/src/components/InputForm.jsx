@@ -23,6 +23,8 @@ export default function InputForm({ onSubmit }) {
       monthlyIncome: parseFloat(formData.monthlyIncome),
       monthlyExpenses: parseFloat(formData.monthlyExpenses),
       currentSavings: parseFloat(formData.currentSavings),
+      availableCredit: parseFloat(formData.availableCredit),
+      interestRate: parseFloat(formData.interestRate),
       timeHorizon: parseInt(formData.timeHorizon)
     };
 

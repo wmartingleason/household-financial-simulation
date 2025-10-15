@@ -38,7 +38,7 @@ export default function InputForm({ onSubmit }) {
   return (
     <div style={styles.container}>
       <div style={styles.formCard}>
-        <h2 style={styles.title}>Calculate Bankruptcy Risk</h2>
+        <h2 style={styles.title}>Household Financial Simulation</h2>
 
         <div style={styles.inputGroup}>
           <label style={styles.label}>Current Monthly Income ($)</label>
@@ -132,7 +132,7 @@ export default function InputForm({ onSubmit }) {
           }}
           disabled={!isFormValid()}
         >
-          Calculate Risk
+          Run Simulation
         </button>
       </div>
     </div>

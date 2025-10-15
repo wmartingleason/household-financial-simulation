@@ -29,12 +29,12 @@ function MonteCarloChart({ samplePaths, aggregateStats, availableCredit }) {
   // Format currency for axis
   const formatCurrency = (value) => {
     if (Math.abs(value) >= 1000000) {
-      return `${(value / 1000000).toFixed(1)}M`;
+      return `$${(value / 1000000).toFixed(1)}M`;
     }
     if (Math.abs(value) >= 1000) {
-      return `${(value / 1000).toFixed(0)}K`;
+      return `$${(value / 1000).toFixed(0)}K`;
     }
-    return `${value.toFixed(0)}`;
+    return `$${value.toFixed(0)}`;
   };
 
   // Custom tooltip
@@ -77,7 +77,7 @@ function MonteCarloChart({ samplePaths, aggregateStats, availableCredit }) {
           stroke="#6b7280"
         />
         <YAxis
-          label={{ value: 'Net Worth ($)', angle: -90, position: 'insideLeft' }}
+          label={{ value: 'Net Worth ($)', angle: -90, position: 'insideLeft', offset: -10, dy: 15 }}
           tickFormatter={formatCurrency}
           stroke="#6b7280"
         />
@@ -91,7 +91,7 @@ function MonteCarloChart({ samplePaths, aggregateStats, availableCredit }) {
             dataKey={`path${idx}`}
             stroke="#94a3b8"
             strokeWidth={1}
-            strokeOpacity={0.2}
+            strokeOpacity={0.4}
             dot={false}
             isAnimationActive={false}
             legendType="none"
@@ -144,7 +144,6 @@ function MonteCarloChart({ samplePaths, aggregateStats, availableCredit }) {
           y={0}
           stroke="#6b7280"
           strokeWidth={2}
-          label={{ value: 'Break Even', position: 'insideTopRight', offset: 10, fill: '#6b7280', fontSize: 12 }}
         />
         <ReferenceLine
           y={-availableCredit}
@@ -187,29 +186,57 @@ function OutcomeDistribution({ terminalValues, statistics, availableCredit }) {
     return bins;
   };
 
-  // Determine bar color based on bin position
-  const getBarColor = (binMidpoint) => {
-    return '#10b981';
-  };
-
   const histogramData = createHistogram(terminalValues, 30);
 
-  // Add color to each bin
   const chartData = histogramData.map(bin => ({
     ...bin,
-    fill: getBarColor(bin.midpoint)
+    fill: '#10b981' // All bars green
   }));
 
   // Format currency
   const formatCurrency = (value) => {
     if (Math.abs(value) >= 1000000) {
-      return `${(value / 1000000).toFixed(1)}M`;
+      return `$${(value / 1000000).toFixed(1)}M`;
     }
     if (Math.abs(value) >= 1000) {
-      return `${(value / 1000).toFixed(0)}K`;
+      return `$${(value / 1000).toFixed(0)}K`;
     }
-    return `${value.toFixed(0)}`;
+    return `$${value.toFixed(0)}`;
   };
+
+  // Generate even tick values for x-axis
+  const generateEvenTicks = () => {
+    const min = Math.min(...terminalValues);
+    const max = Math.max(...terminalValues);
+    const range = max - min;
+
+    // Determine a nice round interval
+    let interval;
+    if (range > 500000) {
+      interval = 100000; // 100K intervals
+    } else if (range > 100000) {
+      interval = 50000; // 50K intervals
+    } else if (range > 50000) {
+      interval = 20000; // 20K intervals
+    } else if (range > 20000) {
+      interval = 10000; // 10K intervals
+    } else {
+      interval = 5000; // 5K intervals
+    }
+
+    // Find the first tick (rounded down to interval)
+    const firstTick = Math.floor(min / interval) * interval;
+    const lastTick = Math.ceil(max / interval) * interval;
+
+    const ticks = [];
+    for (let tick = firstTick; tick <= lastTick; tick += interval) {
+      ticks.push(tick);
+    }
+
+    return ticks;
+  };
+
+  const xAxisTicks = generateEvenTicks();
 
   // Custom tooltip
   const CustomTooltip = ({ active, payload }) => {
@@ -239,30 +266,29 @@ function OutcomeDistribution({ terminalValues, statistics, availableCredit }) {
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={chartData} margin={{ top: 40, right: 40, left: 70, bottom: 60 }}>
+      <BarChart data={chartData} margin={{ top: 40, right: 40, left: 80, bottom: 60 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
         <XAxis
           dataKey="midpoint"
           label={{ value: 'Final Net Worth ($)', position: 'insideBottom', offset: -10 }}
           tickFormatter={formatCurrency}
+          ticks={xAxisTicks}
           stroke="#6b7280"
+          domain={[Math.min(...terminalValues), Math.max(...terminalValues)]}
         />
         <YAxis
-          label={{ value: 'Number of Simulations', angle: -90, position: 'insideLeft' }}
+          label={{ value: 'Number of Simulations', angle: -90, position: 'insideLeft', offset: -10, dy: 15 }}
           stroke="#6b7280"
         />
         <Tooltip content={<CustomTooltip />} />
 
-        {/* Bars with dynamic coloring */}
+        {/* Bars - all green */}
         <Bar
           dataKey="count"
+          fill="#10b981"
           stroke="#d1d5db"
           strokeWidth={1}
-        >
-          {chartData.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={entry.fill} />
-          ))}
-        </Bar>
+        />
 
         {/* Reference lines for key statistics */}
         <ReferenceLine
@@ -316,13 +342,6 @@ function SurvivalCurve({ riskMetrics, aggregateStats, availableCredit, metadata 
     stayingPositive: riskMetrics.probabilityPositiveByMonth[idx],
     aboveCredit: riskMetrics.probabilityAboveCreditByMonth[idx]
   }));
-
-  // Get color based on probability
-  const getColorForProbability = (prob) => {
-    if (prob >= 70) return '#10b981';
-    if (prob >= 40) return '#f59e0b';
-    return '#ef4444';
-  };
 
   // Custom tooltip
   const CustomTooltip = ({ active, payload }) => {
@@ -405,7 +424,7 @@ function SurvivalCurve({ riskMetrics, aggregateStats, availableCredit, metadata 
           fill="url(#colorGradient)"
         />
 
-        {/* Line for staying positive - with dynamic color */}
+        {/* Line for staying positive */}
         <Line
           type="monotone"
           dataKey="stayingPositive"
@@ -430,10 +449,10 @@ function SurvivalCurve({ riskMetrics, aggregateStats, availableCredit, metadata 
   );
 }
 
-
 export default function ResultsDisplay({ data, onReset }) {
   const [activeVisualizationTab, setActiveVisualizationTab] = useState('trajectories');
   const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [reportExpanded, setReportExpanded] = useState(false);
 
   // Handle case where data is undefined
   if (!data) {
@@ -558,22 +577,142 @@ export default function ResultsDisplay({ data, onReset }) {
           </div>
         </div>
 
-        {/* Key Statistics Grid */}
+        {/* Detailed Report - Collapsible */}
         <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>Key Outcomes</h2>
-          <div style={styles.statsGrid}>
-            <div style={styles.statCard}>
-              <div style={styles.statIcon}>💳</div>
-              <div style={styles.statNumber}>{formatCurrency(statistics.medianInterestPaid)}</div>
-              <div style={styles.statLabel}>Median Total Interest Paid</div>
-            </div>
+          <button
+            onClick={() => setReportExpanded(!reportExpanded)}
+            style={styles.expandButton}
+          >
+            <span>Detailed Report</span>
+            <span style={{ transform: reportExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+              ▼
+            </span>
+          </button>
 
-            <div style={styles.statCard}>
-              <div style={styles.statIcon}>💸</div>
-              <div style={styles.statNumber}>{formatCurrency(statistics.meanInterestPaid)}</div>
-              <div style={styles.statLabel}>Mean Total Interest Paid</div>
+          {reportExpanded && (
+            <div style={styles.reportContent}>
+              {/* Terminal Distribution */}
+              <div style={styles.reportSubsection}>
+                <h3 style={styles.reportSectionTitle}>Terminal Distribution</h3>
+                <div style={styles.reportGrid}>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>5th Percentile</span>
+                    <span style={styles.reportValue}>{formatCurrency(statistics.terminalStats.p5)}</span>
+                  </div>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>10th Percentile</span>
+                    <span style={styles.reportValue}>{formatCurrency(statistics.terminalStats.p10)}</span>
+                  </div>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>25th Percentile</span>
+                    <span style={styles.reportValue}>{formatCurrency(statistics.terminalStats.p25)}</span>
+                  </div>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>50th Percentile (Median)</span>
+                    <span style={styles.reportValue}>{formatCurrency(statistics.terminalStats.p50)}</span>
+                  </div>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>75th Percentile</span>
+                    <span style={styles.reportValue}>{formatCurrency(statistics.terminalStats.p75)}</span>
+                  </div>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>90th Percentile</span>
+                    <span style={styles.reportValue}>{formatCurrency(statistics.terminalStats.p90)}</span>
+                  </div>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>95th Percentile</span>
+                    <span style={styles.reportValue}>{formatCurrency(statistics.terminalStats.p95)}</span>
+                  </div>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>Mean</span>
+                    <span style={styles.reportValue}>{formatCurrency(statistics.terminalStats.mean)}</span>
+                  </div>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>Standard Deviation</span>
+                    <span style={styles.reportValue}>{formatCurrency(statistics.terminalStats.std)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div style={styles.reportDivider}></div>
+
+              {/* Debt Analysis */}
+              <div style={styles.reportSubsection}>
+                <h3 style={styles.reportSectionTitle}>Debt Analysis</h3>
+                <div style={styles.reportGrid}>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>Median Total Interest Paid</span>
+                    <span style={styles.reportValue}>{formatCurrency(statistics.medianInterestPaid)}</span>
+                  </div>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>Mean Total Interest Paid</span>
+                    <span style={styles.reportValue}>{formatCurrency(statistics.meanInterestPaid)}</span>
+                  </div>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>Ever Going Negative</span>
+                    <span style={styles.reportValue}>{statistics.everNegativePct.toFixed(1)}%</span>
+                  </div>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>Ending in Debt</span>
+                    <span style={styles.reportValue}>{statistics.negativeTerminalPct.toFixed(1)}%</span>
+                  </div>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>Credit Exhaustion</span>
+                    <span style={styles.reportValue}>{statistics.creditExhaustionPct.toFixed(1)}%</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div style={styles.reportDivider}></div>
+
+              {/* Financial Resilience */}
+              <div style={styles.reportSubsection}>
+                <h3 style={styles.reportSectionTitle}>Financial Resilience</h3>
+                <div style={styles.reportGrid}>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>Emergency Fund Coverage</span>
+                    <span style={styles.reportValue}>{riskMetrics.emergencyFundMonths.toFixed(1)} months</span>
+                  </div>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>Staying Positive @ 6 Months</span>
+                    <span style={styles.reportValue}>
+                      {riskMetrics.probabilityPositiveByMonth[Math.min(6, riskMetrics.probabilityPositiveByMonth.length - 1)]?.toFixed(1) || 'N/A'}%
+                    </span>
+                  </div>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>Staying Positive @ 12 Months</span>
+                    <span style={styles.reportValue}>
+                      {riskMetrics.probabilityPositiveByMonth[Math.min(12, riskMetrics.probabilityPositiveByMonth.length - 1)]?.toFixed(1) || 'N/A'}%
+                    </span>
+                  </div>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>Staying Positive @ 24 Months</span>
+                    <span style={styles.reportValue}>
+                      {riskMetrics.probabilityPositiveByMonth[Math.min(24, riskMetrics.probabilityPositiveByMonth.length - 1)]?.toFixed(1) || 'N/A'}%
+                    </span>
+                  </div>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>Staying Positive @ End ({timeHorizon} mo)</span>
+                    <span style={styles.reportValue}>
+                      {riskMetrics.probabilityPositiveByMonth[riskMetrics.probabilityPositiveByMonth.length - 1]?.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>Median Minimum Balance</span>
+                    <span style={styles.reportValue}>{formatCurrency(statistics.medianMinBalance)}</span>
+                  </div>
+                  <div style={styles.reportItem}>
+                    <span style={styles.reportLabel}>Median Months to First Negative</span>
+                    <span style={styles.reportValue}>
+                      {statistics.medianMonthsToNegative ? `${statistics.medianMonthsToNegative.toFixed(0)} months` : 'Never'}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Simulation Details - Collapsible */}
@@ -608,6 +747,14 @@ export default function ResultsDisplay({ data, onReset }) {
                   <span style={styles.detailValue}>{formatCurrency(currentSavings)}</span>
                 </div>
                 <div style={styles.detailItem}>
+                  <span style={styles.detailLabel}>Available Credit</span>
+                  <span style={styles.detailValue}>{formatCurrency(metadata.availableCredit)}</span>
+                </div>
+                <div style={styles.detailItem}>
+                  <span style={styles.detailLabel}>Interest Rate</span>
+                  <span style={styles.detailValue}>{(metadata.interestRate * 100).toFixed(2)}%</span>
+                </div>
+                <div style={styles.detailItem}>
                   <span style={styles.detailLabel}>Time Horizon</span>
                   <span style={styles.detailValue}>{timeHorizon} months</span>
                 </div>
@@ -615,13 +762,6 @@ export default function ResultsDisplay({ data, onReset }) {
                   <span style={styles.detailLabel}>Simulations Run</span>
                   <span style={styles.detailValue}>{nSimulations.toLocaleString()}</span>
                 </div>
-              </div>
-
-              <div style={styles.insightBox}>
-                <p style={styles.insightText}>
-                  In <strong>{negativeCount.toLocaleString()}</strong> out of <strong>{nSimulations.toLocaleString()}</strong> simulations
-                  ({statistics.negativeTerminalPct.toFixed(1)}%), the final balance was negative.
-                </p>
               </div>
             </div>
           )}
@@ -631,9 +771,6 @@ export default function ResultsDisplay({ data, onReset }) {
         <div style={styles.actionButtons}>
           <button onClick={onReset} style={styles.primaryButton}>
             Run New Simulation
-          </button>
-          <button style={styles.secondaryButton}>
-            Download Report
           </button>
         </div>
       </div>
@@ -725,66 +862,50 @@ const styles = {
     margin: '0 0 24px 0',
     letterSpacing: '-0.01em'
   },
-  chartPlaceholder: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: '12px',
-    border: '2px dashed #d1d5db',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
+  reportContent: {
+    marginTop: '20px',
+    padding: '24px',
+    backgroundColor: '#f9fafb',
+    borderRadius: '8px',
+    border: '1px solid #e5e7eb'
   },
-  placeholderContent: {
-    textAlign: 'center',
-    padding: '40px'
+  reportSubsection: {
+    marginBottom: '0'
   },
-  placeholderIcon: {
-    fontSize: '48px',
-    marginBottom: '16px'
+  reportDivider: {
+    height: '1px',
+    backgroundColor: '#d1d5db',
+    margin: '32px 0'
   },
-  placeholderText: {
+  reportSectionTitle: {
     fontSize: '18px',
     fontWeight: '600',
-    color: '#374151',
-    margin: '0 0 8px 0'
-  },
-  placeholderSubtext: {
-    fontSize: '14px',
-    color: '#6b7280',
-    margin: '0'
-  },
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '20px',
-    maxWidth: '600px',
-    margin: '0 auto'
-  },
-  statCard: {
-    backgroundColor: '#f9fafb',
-    padding: '24px',
-    borderRadius: '12px',
-    border: '1px solid #e5e7eb',
-    textAlign: 'center',
-    transition: 'transform 0.2s, box-shadow 0.2s',
-    cursor: 'default'
-  },
-  statIcon: {
-    fontSize: '32px',
-    marginBottom: '12px'
-  },
-  statNumber: {
-    fontSize: '28px',
-    fontWeight: '700',
     color: '#111827',
-    marginBottom: '8px'
+    margin: '0 0 16px 0'
   },
-  statLabel: {
-    fontSize: '14px',
+  reportGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+    gap: '16px'
+  },
+  reportItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px'
+  },
+  reportLabel: {
+    fontSize: '13px',
     color: '#6b7280',
     fontWeight: '500'
   },
+  reportValue: {
+    fontSize: '20px',
+    color: '#111827',
+    fontWeight: '700'
+  },
   tabContainer: {
     display: 'flex',
+    justifyContent: 'center',
     gap: '8px',
     borderBottom: '2px solid #e5e7eb',
     marginBottom: '24px'
@@ -850,26 +971,13 @@ const styles = {
     color: '#111827',
     fontWeight: '700'
   },
-  insightBox: {
-    padding: '16px',
-    backgroundColor: '#ffffff',
-    borderRadius: '8px',
-    border: '1px solid #e5e7eb'
-  },
-  insightText: {
-    fontSize: '15px',
-    color: '#374151',
-    lineHeight: '1.6',
-    margin: '0'
-  },
   actionButtons: {
     display: 'flex',
-    gap: '16px',
+    justifyContent: 'center',
     marginTop: '48px'
   },
   primaryButton: {
-    flex: 1,
-    padding: '16px 32px',
+    padding: '16px 48px',
     fontSize: '16px',
     fontWeight: '600',
     color: '#ffffff',

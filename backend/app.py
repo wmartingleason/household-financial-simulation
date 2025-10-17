@@ -12,7 +12,6 @@ from mangum import Mangum
 
 app = FastAPI(title="Household Financial Simulation API")
 
-# Enable CORS so React can call this API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -102,7 +101,6 @@ def simulate_financial_outcomes(request: RiskRequest):
     Returns comprehensive simulation data including trajectories, statistics, and risk metrics.
     """
     try:
-        # Initialize the risk engine
         engine = RiskEngine()
         
         # Run the simulation
@@ -111,7 +109,7 @@ def simulate_financial_outcomes(request: RiskRequest):
             initial_income=request.monthlyIncome,
             monthly_expenses=request.monthlyExpenses,
             available_credit=request.availableCredit,
-            interest_rate=request.interestRate / 100,  # Convert percentage to decimal
+            interest_rate=request.interestRate / 100,
             n_months=request.timeHorizon,
             n_simulations=DEFAULT_N_SIMULATIONS,
             params=MODEL_PARAMS,
@@ -119,7 +117,6 @@ def simulate_financial_outcomes(request: RiskRequest):
             n_sample_paths=100
         )
         
-        # Build nested structures
         aggregate_stats = AggregateStats(**results['aggregateStats'])
         
         terminal_stats = TerminalStats(**results['statistics']['terminalStats'])
@@ -127,11 +124,11 @@ def simulate_financial_outcomes(request: RiskRequest):
             terminalStats=terminal_stats,
             negativeTerminalPct=results['statistics']['negativeTerminalPct'],
             everNegativePct=results['statistics']['everNegativePct'],
-            creditExhaustionPct=results['statistics']['creditExhaustionPct'],  # NEW
+            creditExhaustionPct=results['statistics']['creditExhaustionPct'],
             medianMinBalance=results['statistics']['medianMinBalance'],
             meanMinBalance=results['statistics']['meanMinBalance'],
-            medianInterestPaid=results['statistics']['medianInterestPaid'],  # NEW
-            meanInterestPaid=results['statistics']['meanInterestPaid'],  # NEW
+            medianInterestPaid=results['statistics']['medianInterestPaid'],
+            meanInterestPaid=results['statistics']['meanInterestPaid'],
             medianMonthsToNegative=results['statistics']['medianMonthsToNegative']
         )
         

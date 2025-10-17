@@ -63,7 +63,6 @@ class RiskEngine:
 
                 income[t] = max(100, income[t])  # Floor at $100
             else:
-                # No jump, income stays constant
                 income[t] = income[t-1]
 
         return income
@@ -97,12 +96,11 @@ class RiskEngine:
             n_sample_paths: Number of full paths to return for visualization (default 100)
             
         Returns:
-            Dictionary with comprehensive simulation results
+            Dictionary with simulation results
         """
         if seed is not None:
             np.random.seed(seed)
-        
-        # Storage for all simulations
+        \
         all_paths = np.zeros((n_simulations, n_months + 1))
         credit_exhaustion_tracker = np.zeros((n_simulations, n_months + 1), dtype=bool)  # Track exhaustion at each month
         terminal_values = []
@@ -117,12 +115,10 @@ class RiskEngine:
         sample_paths = []
         
         for i in range(n_simulations):
-            # Generate income trajectory for this simulation
             income_trajectory = self.simulate_trajectory(
                 initial_income, n_months, params, seed=i if seed else None
             )
             
-            # Simulate savings evolution
             balance = initial_fund
             monthly_balances = [balance]
             went_negative = False
@@ -130,34 +126,28 @@ class RiskEngine:
             exhausted_credit = False
             total_interest = 0.0
             
-            # Track credit exhaustion at month 0
             credit_exhaustion_tracker[i, 0] = False
             
             for month_idx, month_income in enumerate(income_trajectory):
                 monthly_savings = month_income - monthly_expenses
                 balance += monthly_savings
                 
-                # Apply interest if in debt
                 if balance < 0:
                     monthly_interest = balance * (interest_rate / 12)
                     balance += monthly_interest
                     total_interest += abs(monthly_interest)
                     
-                    # Track first time going negative
                     if not went_negative:
                         went_negative = True
                         first_negative_month = month_idx + 1
                     
-                    # Check for credit exhaustion
                     if balance < -available_credit:
                         exhausted_credit = True
                 
                 monthly_balances.append(balance)
                 
-                # Track if credit has been exhausted by this point
                 credit_exhaustion_tracker[i, month_idx + 1] = exhausted_credit
             
-            # Store results
             all_paths[i] = monthly_balances
             terminal_values.append(balance)
             min_balances.append(min(monthly_balances))
@@ -168,7 +158,6 @@ class RiskEngine:
             if went_negative:
                 months_to_negative.append(first_negative_month)
             
-            # Save full path if in sample
             if i in sample_indices:
                 sample_paths.append(monthly_balances)
         
@@ -182,7 +171,6 @@ class RiskEngine:
         for p in percentiles:
             aggregate_stats[f'p{p}'] = np.percentile(all_paths, p, axis=0).tolist()
         
-        # Calculate terminal statistics
         terminal_array = np.array(terminal_values)
         terminal_stats = {
             'mean': float(terminal_array.mean()),
@@ -193,7 +181,6 @@ class RiskEngine:
         for p in percentiles:
             terminal_stats[f'p{p}'] = float(np.percentile(terminal_array, p))
         
-        # Calculate core statistics
         negative_terminal_count = sum(1 for v in terminal_values if v < 0)
         ever_negative_count = sum(ever_negative)
         credit_exhausted_count = sum(credit_exhausted)
@@ -209,26 +196,21 @@ class RiskEngine:
             'meanInterestPaid': float(np.mean(total_interest_paid_list)),
         }
         
-        # Add median months to negative (only for those who went negative)
         if months_to_negative:
             statistics['medianMonthsToNegative'] = float(np.median(months_to_negative))
         else:
             statistics['medianMonthsToNegative'] = None
         
-        # Calculate survival curves
         probability_positive_by_month = []
         probability_above_credit_by_month = []
         
         for month in range(n_months + 1):
-            # Probability of remaining positive at each month
             positive_count = sum(1 for path in all_paths if path[month] >= 0)
             probability_positive_by_month.append((positive_count / n_simulations) * 100)
             
-            # Probability of never exhausting credit up to each month
             not_exhausted_count = sum(1 for sim in range(n_simulations) if not credit_exhaustion_tracker[sim, month])
             probability_above_credit_by_month.append((not_exhausted_count / n_simulations) * 100)
         
-        # Risk metrics
         risk_metrics = {
             'probabilityPositiveByMonth': probability_positive_by_month,
             'probabilityAboveCreditByMonth': probability_above_credit_by_month,

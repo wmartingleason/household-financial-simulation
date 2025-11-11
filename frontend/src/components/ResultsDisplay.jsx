@@ -7,40 +7,64 @@ function MonteCarloChart({ samplePaths, aggregateStats, availableCredit }) {
   const numPathsToShow = Math.min(30, samplePaths.length);
   const selectedPaths = samplePaths.slice(0, numPathsToShow);
 
+  // Find the minimum value across all data to determine offset
+  let minValue = Infinity;
+  aggregateStats.p10.forEach(val => minValue = Math.min(minValue, val));
+  selectedPaths.forEach(path => {
+    path.forEach(val => minValue = Math.min(minValue, val));
+  });
+
+  // Calculate offset to make all values positive for log scale
+  // Add extra buffer to ensure all values are well above zero
+  const offset = minValue <= 0 ? Math.abs(minValue) + Math.max(10000, Math.abs(minValue) * 0.1) : 0;
+
   // Transform data for Recharts - include sample paths in the data
   const chartData = aggregateStats.months.map((month, idx) => {
     const dataPoint = {
       month: month,
-      median: aggregateStats.p50[idx],
-      p75: aggregateStats.p75[idx],
-      p25: aggregateStats.p25[idx],
-      p90: aggregateStats.p90[idx],
-      p10: aggregateStats.p10[idx]
+      median: aggregateStats.p50[idx] + offset,
+      p75: aggregateStats.p75[idx] + offset,
+      p25: aggregateStats.p25[idx] + offset,
+      p90: aggregateStats.p90[idx] + offset,
+      p10: aggregateStats.p10[idx] + offset
     };
 
     // Add each sample path as a separate key
     selectedPaths.forEach((path, pathIdx) => {
-      dataPoint[`path${pathIdx}`] = path[idx];
+      dataPoint[`path${pathIdx}`] = path[idx] + offset;
     });
 
     return dataPoint;
   });
 
-  // Format currency for axis
+  // Format currency for axis - subtract offset to show true values
   const formatCurrency = (value) => {
-    if (Math.abs(value) >= 1000000) {
-      return `$${(value / 1000000).toFixed(1)}M`;
+    const trueValue = value - offset;
+    if (Math.abs(trueValue) >= 1000000) {
+      return `$${(trueValue / 1000000).toFixed(1)}M`;
     }
-    if (Math.abs(value) >= 1000) {
-      return `$${(value / 1000).toFixed(0)}K`;
+    if (Math.abs(trueValue) >= 1000) {
+      return `$${(trueValue / 1000).toFixed(0)}K`;
     }
-    return `$${value.toFixed(0)}`;
+    return `$${trueValue.toFixed(0)}`;
   };
 
   // Custom tooltip
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
+      // Helper to format with offset removed
+      const formatTrue = (val) => {
+        const trueVal = val - offset;
+        if (Math.abs(trueVal) >= 1000000) {
+          return `$${(trueVal / 1000000).toFixed(1)}M`;
+        }
+        if (Math.abs(trueVal) >= 1000) {
+          return `$${(trueVal / 1000).toFixed(0)}K`;
+        }
+        return `$${trueVal.toFixed(0)}`;
+      };
+
       return (
         <div style={{
           backgroundColor: '#ffffff',
@@ -53,13 +77,13 @@ function MonteCarloChart({ samplePaths, aggregateStats, availableCredit }) {
             Month {data.month}
           </p>
           <p style={{ margin: '4px 0', fontSize: '14px', color: '#3b82f6' }}>
-            <strong>Median:</strong> {formatCurrency(data.median)}
+            <strong>Median:</strong> {formatTrue(data.median)}
           </p>
           <p style={{ margin: '4px 0', fontSize: '14px', color: '#6b7280' }}>
-            <strong>75th:</strong> {formatCurrency(data.p75)}
+            <strong>75th:</strong> {formatTrue(data.p75)}
           </p>
           <p style={{ margin: '4px 0', fontSize: '14px', color: '#6b7280' }}>
-            <strong>25th:</strong> {formatCurrency(data.p25)}
+            <strong>25th:</strong> {formatTrue(data.p25)}
           </p>
         </div>
       );
@@ -77,9 +101,12 @@ function MonteCarloChart({ samplePaths, aggregateStats, availableCredit }) {
           stroke="#6b7280"
         />
         <YAxis
+          scale="log"
+          domain={['auto', 'auto']}
           label={{ value: 'Net Worth ($)', angle: -90, position: 'insideLeft', offset: -10, dy: 15 }}
           tickFormatter={formatCurrency}
           stroke="#6b7280"
+          allowDataOverflow={false}
         />
         <Tooltip content={<CustomTooltip />} />
 
@@ -139,14 +166,14 @@ function MonteCarloChart({ samplePaths, aggregateStats, availableCredit }) {
           dot={false}
         />
 
-        {/* Threshold lines */}
+        {/* Threshold lines - adjusted for offset */}
         <ReferenceLine
-          y={0}
+          y={0 + offset}
           stroke="#6b7280"
           strokeWidth={2}
         />
         <ReferenceLine
-          y={-availableCredit}
+          y={-availableCredit + offset}
           stroke="#ef4444"
           strokeWidth={2}
           strokeDasharray="5 5"
@@ -641,10 +668,6 @@ export default function ResultsDisplay({ data, onReset }) {
               <div style={styles.reportSubsection}>
                 <h3 style={styles.reportSectionTitle}>Debt Analysis</h3>
                 <div style={styles.reportGrid}>
-                  <div style={styles.reportItem}>
-                    <span style={styles.reportLabel}>Median Total Interest Paid</span>
-                    <span style={styles.reportValue}>{formatCurrency(statistics.medianInterestPaid)}</span>
-                  </div>
                   <div style={styles.reportItem}>
                     <span style={styles.reportLabel}>Mean Total Interest Paid</span>
                     <span style={styles.reportValue}>{formatCurrency(statistics.meanInterestPaid)}</span>

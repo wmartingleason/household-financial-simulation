@@ -100,7 +100,7 @@ class RiskEngine:
         """
         if seed is not None:
             np.random.seed(seed)
-        \
+        
         all_paths = np.zeros((n_simulations, n_months + 1))
         credit_exhaustion_tracker = np.zeros((n_simulations, n_months + 1), dtype=bool)  # Track exhaustion at each month
         terminal_values = []

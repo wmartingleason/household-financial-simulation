@@ -4,6 +4,7 @@ Statistical calculations for household income volatility analysis.
 
 import pandas as pd
 import numpy as np
+from scipy import stats
 from config.config import LARGE_JUMP_THRESHOLD, SMALL_CHANGE_THRESHOLD
 
 
@@ -18,42 +19,79 @@ class Statistics:
     @staticmethod
     def calc_household_stats(group: pd.DataFrame) -> pd.Series:
         """
-        Calculate basic volatility statistics for a household.
-        
+        Calculate comprehensive volatility statistics for a household.
+
         Args:
             group: DataFrame for a single household (from groupby)
-            
+
         Returns:
-            Series with variance, cv, jump_freq, n_months
+            Series with variance, cv, jump_freq, skewness, kurtosis, autocorrelation,
+            frac_large_jumps_25pct, frac_large_jumps_50pct, and n_months
         """
         income = group['THTOTINC'].values
-        
+
         # Filter out zeros and NaNs for percentage change calculation
         income_nonzero = income[income > 0]
-        
+
         if len(income_nonzero) < 2:
-            return pd.Series({  
+            return pd.Series({
                 'variance': np.nan,
                 'cv': np.nan,
                 'jump_freq': np.nan,
+                'skewness': np.nan,
+                'kurtosis': np.nan,
+                'autocorrelation': np.nan,
+                'frac_large_jumps_25pct': np.nan,
+                'frac_large_jumps_50pct': np.nan,
                 'n_months': len(income)
             })
-        
+
         # Variance and CV
         variance = np.var(income_nonzero)
         cv = np.std(income_nonzero) / np.mean(income_nonzero)
-        
+
         # Calculate percentage changes
         pct_changes = np.diff(income_nonzero) / income_nonzero[:-1]
-        
+
         # Count large jumps (absolute change >= 30%)
         large_jumps = np.abs(pct_changes) >= LARGE_JUMP_THRESHOLD
         jump_freq = large_jumps.sum() / len(pct_changes) if len(pct_changes) > 0 else 0
-        
+
+        # Skewness of income changes
+        if len(pct_changes) >= 3:
+            skewness = stats.skew(pct_changes)
+        else:
+            skewness = np.nan
+
+        # Kurtosis of income changes
+        if len(pct_changes) >= 4:
+            kurtosis = stats.kurtosis(pct_changes)
+        else:
+            kurtosis = np.nan
+
+        # Autocorrelation of income levels (lag-1)
+        if len(income_nonzero) > 2:
+            autocorrelation = np.corrcoef(income_nonzero[:-1], income_nonzero[1:])[0, 1]
+        else:
+            autocorrelation = np.nan
+
+        # Fraction of large jumps (>25% up or down)
+        large_jumps_25pct = np.abs(pct_changes) >= 0.25
+        frac_large_jumps_25pct = large_jumps_25pct.sum() / len(pct_changes) if len(pct_changes) > 0 else 0
+
+        # Fraction of very large jumps (>50% up or down)
+        large_jumps_50pct = np.abs(pct_changes) >= 0.50
+        frac_large_jumps_50pct = large_jumps_50pct.sum() / len(pct_changes) if len(pct_changes) > 0 else 0
+
         return pd.Series({
             'variance': variance,
             'cv': cv,
             'jump_freq': jump_freq,
+            'skewness': skewness,
+            'kurtosis': kurtosis,
+            'autocorrelation': autocorrelation,
+            'frac_large_jumps_25pct': frac_large_jumps_25pct,
+            'frac_large_jumps_50pct': frac_large_jumps_50pct,
             'n_months': len(income)
         })
     
@@ -201,23 +239,42 @@ class Statistics:
     
     def compute_household_stats(self, df: pd.DataFrame, min_months: int = 6) -> pd.DataFrame:
         """
-        Compute basic household statistics with filtering.
-        
+        Compute comprehensive household statistics by merging all analyses.
+
+        This creates a complete household statistics DataFrame including:
+        - Basic volatility metrics (variance, CV, jump frequencies)
+        - New statistics: skewness, kurtosis, autocorrelation
+        - Fraction of large jumps (25% and 50%)
+        - Variance decomposition components
+        - Change distribution analysis
+
         Args:
             df: Input DataFrame with household data
             min_months: Minimum number of months required
-            
+
         Returns:
-            DataFrame with household statistics
+            DataFrame with all household statistics merged
         """
+        # Compute base stats with new statistics
         household_stats = df.groupby(['SSUID', 'SHHADID']).apply(self.calc_household_stats).reset_index()
-        
+
         # Filter to households with sufficient observations
         household_stats = household_stats[household_stats['n_months'] >= min_months]
-        
-        # Remove any remaining NaNs
+
+        # Remove any NaNs from critical columns
         household_stats = household_stats.dropna(subset=['cv', 'jump_freq'])
-        
+
+        # Compute additional analyses
+        decomp = self.compute_variance_decomposition(df)
+        change_dist = self.compute_change_distribution(df)
+
+        # Merge all together
+        household_stats = household_stats.merge(decomp, on=['SSUID', 'SHHADID'], how='inner')
+        household_stats = household_stats.merge(change_dist, on=['SSUID', 'SHHADID'], how='inner')
+
+        # Remove any NaNs from the additional columns
+        household_stats = household_stats.dropna(subset=['acf_lag1', 'median_abs_change'])
+
         return household_stats
     
     def compute_variance_decomposition(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -247,51 +304,21 @@ class Statistics:
     def compute_income_analysis(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Compute income-dependent analysis for all households.
-        
+
         Args:
             df: Input DataFrame with household data
-            
+
         Returns:
             DataFrame with income analysis results, including income_quintile
         """
         income_analysis = df.groupby(['SSUID', 'SHHADID']).apply(self.income_dependent_analysis).reset_index()
         income_analysis = income_analysis.dropna()
-        
+
         # Bin by income level
         income_analysis['income_quintile'] = pd.qcut(
-            income_analysis['mean_income'], 
-            q=5, 
+            income_analysis['mean_income'],
+            q=5,
             labels=['Q1', 'Q2', 'Q3', 'Q4', 'Q5']
         )
-        
+
         return income_analysis
-    
-    def compute_full_household_stats(self, df: pd.DataFrame, min_months: int = 6) -> pd.DataFrame:
-        """
-        Compute complete household statistics by merging all analyses.
-        
-        This creates the household_stats_full DataFrame used for visualization
-        and parameter estimation.
-        
-        Args:
-            df: Input DataFrame with household data
-            min_months: Minimum number of months required
-            
-        Returns:
-            DataFrame with all household statistics merged
-        """
-        # Compute base stats with filtering
-        household_stats = self.compute_household_stats(df, min_months)
-        
-        # Compute additional analyses
-        decomp = self.compute_variance_decomposition(df)
-        change_dist = self.compute_change_distribution(df)
-        
-        # Merge all together
-        household_stats_full = household_stats.merge(decomp, on='SSUID', how='inner')
-        household_stats_full = household_stats_full.merge(change_dist, on='SSUID', how='inner')
-        
-        # Remove any NaNs from the new columns
-        household_stats_full = household_stats_full.dropna(subset=['acf_lag1', 'median_abs_change'])
-        
-        return household_stats_full

@@ -52,7 +52,6 @@ The simulation engine (`RiskEngine`) implements Monte Carlo-powered financial mo
 
 #### Income Trajectory Generation
 - Generates stochastic income paths using the compound Poisson model
-- Each household draws its own jump frequency from a Beta distribution
 - Jump sizes follow lognormal distribution with estimated parameters
 - Income floors at $100 to prevent unrealistic values
 
@@ -64,7 +63,7 @@ The simulation engine (`RiskEngine`) implements Monte Carlo-powered financial mo
 
 ## Key Features
 
-### Advanced Risk Metrics
+### Risk Metrics
 
 The system calculates risk measures:
 
@@ -74,7 +73,7 @@ The system calculates risk measures:
 - **Interest Cost Analysis**: Total interest paid across scenarios
 - **Minimum Balance Statistics**: Distribution of lowest balance reached
 
-### Interactive Visualizations
+### Visualizations
 
 The frontend provides data visualization:
 
@@ -93,7 +92,7 @@ The frontend provides data visualization:
 
 ### SIPP Data Analysis (`/data_analysis/`)
 
-The data analysis module processes real household income data:
+The data analysis module processes household income data:
 
 ```python
 # Main analysis pipeline
@@ -123,7 +122,7 @@ params, simulated_df, trajectories = sim.validate_model(
 
 ## Backend API (`/backend/`)
 
-The FastAPI backend provides a robust simulation service:
+The FastAPI backend provides the simulation service:
 
 ### Endpoints
 
@@ -210,7 +209,7 @@ def simulate_financial_outcomes(self, initial_fund, monthly_expenses,
 
 ### Model Validation
 
-The system includes comprehensive validation:
+The system includes validation:
 
 - **Parameter Estimation**: Robust statistical methods for parameter extraction
 - **Model Validation**: Comparison of simulated vs. real data distributions
@@ -279,15 +278,11 @@ This simulator may facilitate research into:
 
 ## Technical Specifications
 
-- **Simulation Scale**: 10,000+ Monte Carlo trials per analysis
+- **Simulation Scale**: 10,000 Monte Carlo trials per analysis
 - **Time Horizon**: Intended for 1-4 year long simulations
 - **Data Sources**: SIPP 2021-2024 household income data
 - **Household Income Model**: Compound Poisson process with lognormal jumps
 
-## Contributing
-
-This project represents a comprehensive approach to household financial risk modeling, combining real-world data analysis with sophisticated simulation techniques. The modular architecture enables extension and customization for specific research needs.
-
 ## License
 
-[Add appropriate license information]
+MIT License

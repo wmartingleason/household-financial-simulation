@@ -77,7 +77,6 @@ class Simulation:
                 upward_jumps += upward_mask.sum()
                 total_jumps += len(nonzero_pct_changes)
 
-        # Convert to arrays for robust statistics
         all_pct_changes = np.array(all_pct_changes)
         all_incomes = np.array(all_incomes)
 
@@ -196,7 +195,6 @@ class Simulation:
         if len(trajectory) < 2:
             return None
 
-        # Import Statistics class (local import to avoid circular dependency)
         from src.statistics import Statistics
 
         # Convert trajectory to DataFrame format expected by calc_household_stats
@@ -204,15 +202,12 @@ class Simulation:
             'THTOTINC': trajectory
         })
 
-        # Calculate statistics using the same method as for real data
         stats_series = Statistics.calc_household_stats(trajectory_df)
 
-        # Convert to dictionary, excluding n_months
         stats_dict = stats_series.to_dict()
         if 'n_months' in stats_dict:
             del stats_dict['n_months']
 
-        # Add mean_nonzero_pct_change for backward compatibility with existing code
         trajectory_nonzero = trajectory[trajectory > 0]
         if len(trajectory_nonzero) >= 2:
             changes = np.diff(trajectory_nonzero)
@@ -264,20 +259,16 @@ class Simulation:
         Returns:
             Tuple of (params, simulated_stats_df, simulated_trajectories)
         """
-        # Estimate parameters using raw data
         params = self.estimate_model_parameters(raw_data, household_stats_full, income_analysis)
         
         print("\nModel Parameters:")
         for key, value in params.items():
             print(f"{key}: {value:.3f}")
         
-        # Run simulations
         simulated_trajectories = self.run_simulations(n_simulations, n_months, params)
         
-        # Compute statistics
         simulated_df = self.compute_simulation_statistics(simulated_trajectories)
         
-        # Print validation summary with expanded metrics
         metrics = [
             'cv',
             'frac_zero_change',
@@ -290,7 +281,6 @@ class Simulation:
             'frac_large_jumps_50pct'
         ]
 
-        # Define custom aggregation functions including median
         agg_funcs = ['count', 'mean', 'std', 'min', 'median', '25%', '50%', '75%', 'max']
 
         print("\nValidation: Real vs Simulated Statistics")

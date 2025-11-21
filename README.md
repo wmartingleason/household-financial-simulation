@@ -18,37 +18,37 @@ The system consists of three main components:
 
 ### Income Volatility Model
 
-The system uses a **compound Poisson jump process** to model household income dynamics:
+The system uses a compound Poisson jump process to model household income dynamics:
 
 ```
 Income(t+1) = Income(t) × (1 + Jump(t))
 ```
 
 Where:
-- **Jump frequency**: λ = 0.273 (27.3% chance of income change per month)
-- **Jump size distribution**: Lognormal with median 23.2% change
-- **Jump direction**: 50% upward, 50% downward
-- **Jump size percentiles**: 25th = 11.5%, 75th = 54.5%
+- **Jump frequency**: λ = 0.189 (18.9% chance of income change per month)
+- **Jump size distribution**: Lognormal with median 11.9% change
+- **Jump direction**: 59.99% upward, 40.01% downward
+- **Jump size percentiles**: 25th = 0.31%, 75th = 0.361%
 
 ### Parameter Estimation from SIPP Data
 
 The model parameters are derived from real household income data through a statistical analysis pipeline:
 
 1. **Data Loading**: Processes SIPP household income records (2021-2024)
-2. **Statistical Analysis**: Computes volatility metrics including:
+2. **Statistical Analysis**: Computes metrics including:
    - Coefficient of variation (CV)
    - Jump frequency and magnitude distributions
    - Income change patterns and persistence
    - Variance decomposition into trend and volatility components
 
-3. **Parameter Extraction**: Estimates model parameters using robust statistical methods:
+3. **Parameter Extraction**: Estimates model parameters using statistical methods:
    - Winsorized jump sizes at 99th percentile to remove outliers
    - Median-based parameter estimation for robustness
    - Interquartile range analysis for lognormal distribution fitting
 
 ### Monte Carlo Simulation Engine
 
-The simulation engine (`RiskEngine`) implements Monte Carlo-powered financial modeling:
+The engine (`RiskEngine`) uses Monte Carlo simulation to predict outcomes:
 
 #### Income Trajectory Generation
 - Generates stochastic income paths using the compound Poisson model
@@ -155,7 +155,7 @@ The API returns simulation results:
 
 ## Frontend Interface (`/frontend/`)
 
-The React frontend provides an intuitive user experience:
+The React frontend provides a straightforward user experience:
 
 ### Components
 
@@ -214,7 +214,8 @@ The system includes validation:
 - **Parameter Estimation**: Robust statistical methods for parameter extraction
 - **Model Validation**: Comparison of simulated vs. real data distributions
 - **Sensitivity Analysis**: Testing parameter stability
-- **Cross-Validation**: Multiple validation approaches
+
+But the model is not perfect. Moments are similar, CV is similar across simulated and real data, but for production applications, the model should be improved. Additionally, the quality of SIPP data is questionable due to reporting issues.
 
 ## Installation and Usage
 
@@ -226,24 +227,15 @@ The system includes validation:
 
 ### Setup
 
-1. **Data Analysis Environment**:
+1. **Python Environment**:
 ```bash
-cd data_analysis
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+uvicorn app:app --reload # for the FastAPI app
 ```
 
-2. **Backend API**:
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app:app --reload
-```
-
-3. **Frontend Interface**:
+2. **Frontend Interface**:
 ```bash
 cd frontend
 npm install
@@ -254,18 +246,8 @@ npm run dev
 
 **Process SIPP Data**:
 ```bash
-cd data_analysis
-python main.py
+python -m data_analysis,main
 ```
-
-## Model Validation Results
-
-The system demonstrates strong validation performance:
-
-- **Jump Frequency**: Real data 27.3% vs. Simulated 27.1%
-- **Jump Magnitude**: Real median 23.2% vs. Simulated 22.8%
-- **Volatility Distribution**: CV distributions match within 5%
-- **Temporal Patterns**: Autocorrelation preserved in simulations
 
 ## Research Applications
 

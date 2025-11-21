@@ -22,10 +22,7 @@ class Simulation:
         income_analysis: Optional[pd.DataFrame] = None
     ) -> Dict[str, float]:
         """
-        Extract model parameters directly from raw household data.
-
-        This method uses individual-level data points rather than aggregated statistics,
-        providing more robust parameter estimates.
+        Extract model parameters from raw household data.
 
         Args:
             raw_data: Raw household income data with columns SSUID, SHHADID, THTOTINC
@@ -89,21 +86,21 @@ class Simulation:
 
         params = {
             # Jump frequency: fraction of non-zero changes
-            'lambda': 1 - (zero_changes_count / total_changes_count) if total_changes_count > 0 else 0.1,
+            'lambda': 1 - (zero_changes_count / total_changes_count),
 
             # Jump size: use MEDIAN of all raw percentage changes
-            'jump_median_pct': np.median(all_pct_changes_winsorized) if len(all_pct_changes_winsorized) > 0 else 0.15,
+            'jump_median_pct': np.median(all_pct_changes_winsorized),
 
             # For lognormal: use IQR from all raw data points
-            'jump_q25': np.percentile(all_pct_changes_winsorized, 25) if len(all_pct_changes_winsorized) > 0 else 0.05,
-            'jump_q75': np.percentile(all_pct_changes_winsorized, 75) if len(all_pct_changes_winsorized) > 0 else 0.25,
+            'jump_q25': np.percentile(all_pct_changes_winsorized, 25),
+            'jump_q75': np.percentile(all_pct_changes_winsorized, 75),
 
             # Jump direction: probability of upward jump from raw data
-            'prob_upward': upward_jumps / total_jumps if total_jumps > 0 else 0.5,
+            'prob_upward': upward_jumps / total_jumps,
 
             # Initial income distribution from all raw income values
-            'initial_income_median': np.median(all_incomes) if len(all_incomes) > 0 else 5000,
-            'initial_income_iqr': (np.percentile(all_incomes, 75) - np.percentile(all_incomes, 25)) if len(all_incomes) > 0 else 3000,
+            'initial_income_median': np.median(all_incomes),
+            'initial_income_iqr': (np.percentile(all_incomes, 75) - np.percentile(all_incomes, 25)),
         }
 
         return params
@@ -195,7 +192,7 @@ class Simulation:
         if len(trajectory) < 2:
             return None
 
-        from src.statistics import Statistics
+        from data_analysis.src.statistics import Statistics
 
         # Convert trajectory to DataFrame format expected by calc_household_stats
         trajectory_df = pd.DataFrame({

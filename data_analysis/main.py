@@ -5,12 +5,12 @@ This script coordinates the data loading, statistical analysis, simulation,
 and visualization pipeline.
 """
 
-from config.config import YEARS, DATA_DIR, MIN_MONTHS, NROWS
-from src.data_loader import DataLoader
-from src.statistics import Statistics
-from src.simulation import Simulation
-from src.visualization import Visualization
-from src.risk_engine import RiskEngine
+from data_analysis.config.config import YEARS, DATA_DIR, MIN_MONTHS, NROWS
+from data_analysis.src.data_loader import DataLoader
+from data_analysis.src.statistics import Statistics
+from data_analysis.src.simulation import Simulation
+from data_analysis.src.visualization import Visualization
+from data_analysis.src.risk_engine import RiskEngine
 
 
 def main():

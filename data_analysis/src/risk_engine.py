@@ -4,7 +4,7 @@ Risk engine for evaluating household financial strategies.
 
 import numpy as np
 from typing import Dict, Optional
-from data_analysis.src.simulation import Simulation
+from .simulation import Simulation
 
 
 class RiskEngine:

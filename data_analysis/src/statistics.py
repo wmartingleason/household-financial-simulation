@@ -5,7 +5,7 @@ Statistical calculations for household income volatility analysis.
 import pandas as pd
 import numpy as np
 from scipy import stats
-from data_analysis.config.config import LARGE_JUMP_THRESHOLD, SMALL_CHANGE_THRESHOLD
+from config.config import LARGE_JUMP_THRESHOLD, SMALL_CHANGE_THRESHOLD
 
 
 class Statistics:

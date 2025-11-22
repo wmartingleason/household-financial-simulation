@@ -2,6 +2,3 @@ data/
 .venv/
 __pycache__/
 .env*
-.claude/
-.gitignore
-.vite/

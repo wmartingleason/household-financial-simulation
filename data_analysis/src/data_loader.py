@@ -1,6 +1,6 @@
 import pandas as pd
 from typing import List, Optional
-from data_analysis.config.config import HOUSEHOLD_COLS
+from config.config import HOUSEHOLD_COLS
 
 
 class DataLoader:
